@@ -1,18 +1,30 @@
 type Player = "O" | "X"
+type Tie = string
 type Cell = Player | undefined
 type GameState = {
+    id: number;
     currentPlayer: Player;
-    winner: Player | undefined;
+    // result: Player | undefined | "Tie"
+    winner: Player | undefined | Tie;
     board: Cell[][]
 }
 
 export const initialGameState: GameState = {
+  id: 1,
   currentPlayer: "X",
   winner: undefined,
   board:[[undefined, undefined, undefined],
     [undefined, undefined, undefined],
     [undefined, undefined, undefined]]
 }
+
+export const createInitialGameState = (id: number): GameState => ({
+  id, currentPlayer: "X", winner: undefined, board: [
+    [undefined, undefined, undefined],
+    [undefined, undefined, undefined],
+    [undefined, undefined, undefined]
+  ]
+})
 
 function makeMove(gameState: GameState, row: number, col: number): GameState {
     const newState = structuredClone(gameState)
@@ -21,7 +33,7 @@ function makeMove(gameState: GameState, row: number, col: number): GameState {
     return newState
 }
 
-function callWinner(board: Cell[][]) : Player | undefined {
+function callWinner(board: Cell[][]) : Player | undefined | Tie {
     // rows
 if (board[0][0] && board[0][0] === board[0][1] && board[0][1] === board[0][2]) {
     return board[0][0];
