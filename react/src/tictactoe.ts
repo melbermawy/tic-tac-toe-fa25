@@ -6,6 +6,14 @@ type GameState = {
     board: Cell[][]
 }
 
+export const initialGameState: GameState = {
+  currentPlayer: "X",
+  winner: undefined,
+  board:[[undefined, undefined, undefined],
+    [undefined, undefined, undefined],
+    [undefined, undefined, undefined]]
+}
+
 function makeMove(gameState: GameState, row: number, col: number): GameState {
     const newState = structuredClone(gameState)
     newState.board[row][col] = gameState.currentPlayer
