@@ -20,6 +20,18 @@ games.set(seedId, newGame)
 
 app.use(express.json());
 
+app.get("/api/game", (_, res) => {
+    const summaries = Array.from(games.values()).map(g => ({id: g.id, winner: g.winner,}))
+    res.json(summaries)
+})
+
+app.post("/api/game", (_, res) => {
+    const id = nextID++
+    const newGame = createInitialGameState(id)
+    games.set(id, newGame)
+    res.json(newGame)
+})
+
 app.get("/api/game/:id", (req, res) => {
     const paramID = Number(req.params.id)
     const game = games.get(paramID)

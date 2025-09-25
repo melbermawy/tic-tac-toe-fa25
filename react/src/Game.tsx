@@ -2,17 +2,21 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import type { GameState } from "./tictactoe";
 import { initialGameState } from "./tictactoe";
+type GameProps = {
+  gameID: number,
+  onBack: () => void
+}
 
-function Game() {
+function Game({gameID, onBack}: GameProps) {
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const gameId = 1
 
   useEffect(() => {
-    fetch(`/api/game/${gameId}`)
+    fetch(`/api/game/${gameID}`)
       .then((res) => res.json())
       .then((data: GameState) => setGameState(data))
       .catch((err) => console.error("error", err));
-  }, []);
+  }, [gameID]);
 
   async function handleClick(row: number, col: number) {
     if (gameState.winner || gameState.board[row][col]) return;
@@ -74,6 +78,13 @@ function Game() {
         {gameState.winner
           ? `Winner: ${gameState.winner}`
           : `Next player: ${gameState.currentPlayer}`}
+      </div>
+      <div className="m-4">
+        <button className="bg-[#2e2e2e] hover:bg-black px-4 py-2 rounded mb-6 text-white font-bold text-lg font-sans"
+          onClick={onBack}
+        >
+            Return to Home Page
+        </button>
       </div>
     </div>
   );
