@@ -9,7 +9,6 @@ type GameProps = {
 
 function Game({gameID, onBack}: GameProps) {
   const [gameState, setGameState] = useState<GameState>(initialGameState);
-  const gameId = 1
 
   useEffect(() => {
     fetch(`/api/game/${gameID}`)
@@ -20,13 +19,25 @@ function Game({gameID, onBack}: GameProps) {
 
   async function handleClick(row: number, col: number) {
     if (gameState.winner || gameState.board[row][col]) return;
-    const updated = await fetch(`/api/move/${gameId}`, {
+    const updated = await fetch(`/api/move/${gameID}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ row, col }),
     }).then((r) => r.json());
     setGameState(updated);
   }
+
+useEffect(() =>  {const webSocket = new WebSocket("ws://localhost:3001")
+  webSocket.onopen = () =>
+    webSocket.send(JSON.stringify({ type: "join", gameId: gameID}))
+
+  webSocket.onmessage = (e) => {
+    const wsMessage = JSON.parse(e.data)
+    if (wsMessage.type === "update") setGameState(wsMessage.game)
+  }
+
+  return () => webSocket.close()
+}, [gameID])
 
   const parentDiv =
     "min-h-screen w-full bg-neutral-600 text-neutral-900 flex flex-col items-center py-10";
