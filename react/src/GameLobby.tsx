@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import type { GameState } from "./tictactoe";
-import { initialGameState } from "./tictactoe";
   type Player = "X" | "O"
   type GameSummary = { id: number; winner: Player | undefined }
   type LobbyProps = {
@@ -30,7 +28,7 @@ export default function GameLobby({onPick, onCreateClick}: LobbyProps) {
       </p>
 
       <button
-        className="bg-[#2e2e2e] hover:bg-black px-4 py-2 rounded mb-6 text-white"
+        className="bg-[#2e2e2e] hover:bg-black px-4 py-2 rounded mb-6 mt-1 text-white"
         onClick={onCreateClick}
       >
         Create New Game
@@ -43,9 +41,10 @@ export default function GameLobby({onPick, onCreateClick}: LobbyProps) {
             className="flex justify-between items-center py-3 px-4 hover:bg-gray-800 cursor-pointer"
           >
             <span className="font-medium text-white">Game #{g.id}</span>
-            <span className="text-sm text-gray-400">
+            <span className="text-[#dedede]">
               {g.winner ? `${g.winner} won` : "In progress"}
             </span>
+            <button className="bg-[#2e2e2e] hover:bg-black px-4 py-2 rounded mb-6 text-white" onClick={() => onPick(g.id)}>Join</button>
           </li>
         ))}
       </ul>
