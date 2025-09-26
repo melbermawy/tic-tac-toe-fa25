@@ -1,4 +1,5 @@
 import express from "express";
+import { WebSocketServer, WebSocket } from "ws";
 import ViteExpress from "vite-express";
 import { createInitialGameState, makeMove, callWinner, type GameState } from "./tictactoe";
 
@@ -12,6 +13,9 @@ const app = express();
 const PORT = 3001;
 
 const games = new Map<number, GameState>()
+const wsRooms = new Map<number, Set<WebSocket>>()
+const wsRoom = (id: number) => wsRooms.get(id) ?? wsRooms.set(id, new Set()).get(id)!
+
 let nextID = 1
 
 const seedId = nextID++
@@ -49,9 +53,30 @@ app.post("/api/move/:id", (req, res) => {
   const next = makeMove(g, body.row, body.col);
   next.winner = callWinner(next.board)
   games.set(paramId, next)
+  for (const client of wsRoom(paramId)) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ type: "update", game: next }))
+    }
+  }
   res.status(201).json(next);
 });
 
-ViteExpress.listen(app, PORT, () => {
+const server = ViteExpress.listen(app, PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+
+const wss = new WebSocketServer({ port: 4000 })
+
+wss.on("connection", (ws) => {
+  ws.on("message", (msg) => {
+    const message = JSON.parse(msg.toString())
+    if (message.type === "join") wsRoom(message.gameId).add(ws)
+      const wsGame = games.get(message.gameId)
+    if (wsGame && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "update", game: wsGame }))
+    }
+  })
+  ws.on("close", () => {
+    for (const set of wsRooms.values()) set.delete(ws)
+  })
+})

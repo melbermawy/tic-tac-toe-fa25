@@ -27,7 +27,38 @@ function Game({gameID, onBack}: GameProps) {
     setGameState(updated);
   }
 
-useEffect(() =>  {const webSocket = new WebSocket("ws://localhost:3001")
+useEffect(() => {
+
+  const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws"
+  const wsUrl = `${wsProtocol}://${window.location.host}/ws`
+  const webSocket = new WebSocket(wsUrl)
+    webSocket.onopen = () => {
+        webSocket.send(JSON.stringify({ type: "join", gameId: gameID }))
+    }
+    webSocket.onmessage = (e) => {
+    try {
+      const wsMessage = JSON.parse(typeof e.data === "string" ? e.data : String(e.data))
+      if (wsMessage?.type === "update" && wsMessage.game) {
+        setGameState(wsMessage.game as GameState)
+      } else {
+        console.warn("WS unknown message:", wsMessage)
+      }
+    } catch (err) {
+      console.warn("WS non-JSON message:", e.data)
+    }
+  }
+
+  webSocket.onclose = (ev) => {
+    console.log("WebSocket closed:", ev.code, ev.reason);
+  };
+
+  return () => webSocket.close();
+}, [gameID]);
+
+
+
+useEffect(() =>  {
+  const webSocket = new WebSocket("ws://localhost:4000")
   webSocket.onopen = () =>
     webSocket.send(JSON.stringify({ type: "join", gameId: gameID}))
 
