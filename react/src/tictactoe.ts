@@ -1,12 +1,13 @@
 type Player = "O" | "X"
-type Tie = string
+type Tie = "Tie"
 type Cell = Player | undefined
+export type Board = Cell[][]
 type GameState = {
     id: number;
     currentPlayer: Player;
     // result: Player | undefined | "Tie"
     winner: Player | undefined | Tie;
-    board: Cell[][]
+    board: Board
 }
 
 export const initialGameState: GameState = {
