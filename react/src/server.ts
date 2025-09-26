@@ -2,6 +2,10 @@ import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import ViteExpress from "vite-express";
 import { createInitialGameState, makeMove, callWinner, type GameState } from "./tictactoe";
+import { db, client } from ".";
+import { gamesTable } from "./db/schema";
+import type { PgColumn } from "drizzle-orm/pg-core";
+import { eq } from "drizzle-orm"
 
 
 type MoveReqBody = {
@@ -12,53 +16,48 @@ type MoveReqBody = {
 const app = express();
 const PORT = 3001;
 
-const games = new Map<number, GameState>()
+
 const wsRooms = new Map<number, Set<WebSocket>>()
 const wsRoom = (id: number) => wsRooms.get(id) ?? wsRooms.set(id, new Set()).get(id)!
 
-let nextID = 1
 
-const seedId = nextID++
-const newGame = createInitialGameState(seedId)
-games.set(seedId, newGame)
 
 app.use(express.json());
 
-app.get("/api/game", (_, res) => {
-    const summaries = Array.from(games.values()).map(g => ({id: g.id, winner: g.winner,}))
+app.get("/api/game", async (_, res) => {
+    const summaries = await db.select({ id: gamesTable.id, winner: gamesTable.winner }).from(gamesTable)
     res.json(summaries)
 })
 
-app.post("/api/game", (_, res) => {
-    const id = nextID++
-    const newGame = createInitialGameState(id)
-    games.set(id, newGame)
-    res.json(newGame)
+app.post("/api/game", async (_, res) => {
+  const initial = { currentPlayer: "X", winner: null, board: createInitialGameState().board }
+  const [{ id }] = await db.insert(gamesTable).values(initial).returning({ id: gamesTable.id })
+  res.json({id, ...initial})
 })
 
-app.get("/api/game/:id", (req, res) => {
+
+// const game = await db.query.gamesTable.findFirst({ where: (g, { eq }) => eq(g.id, paramID) })
+app.get("/api/game/:id", async (req, res) => {
     const paramID = Number(req.params.id)
-    const game = games.get(paramID)
+    const game = await db.query.gamesTable.findFirst({ where: (g, { eq }) => (eq(g.id, paramID))})
     if (!game) return res.status(404).json({ error: "Game not found" })
     res.json(game);
 });
 
-app.post("/api/move/:id", (req, res) => {
+app.post("/api/move/:id", async (req, res) => {
   const paramId = Number(req.params.id)
-  const g = games.get(paramId)
   const body = req.body as MoveReqBody;
-// to solve the type error with g
-  if (!g) return res.status(404).json({ error: "Game not found" })
-
-  const next = makeMove(g, body.row, body.col);
-  next.winner = callWinner(next.board)
-  games.set(paramId, next)
+  const current = await db.query.gamesTable.findFirst({ where: (g, { eq }) => eq(g.id, paramId) })
+  if (!current) return res.status(404).json({ error: "Game not found "})
+  const moved = makeMove(current as GameState, body.row, body.col)
+  const next = { ...moved, winner: callWinner(moved.board)}
+  await db.update(gamesTable).set({ board: next.board, currentPlayer: next.currentPlayer, winner: next.winner}).where(eq(gamesTable.id, paramId))
   for (const client of wsRoom(paramId)) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify({ type: "update", game: next }))
     }
   }
-  res.status(201).json(next);
+  res.status(201).json(next)
 });
 
 const server = ViteExpress.listen(app, PORT, () => {
@@ -68,10 +67,10 @@ const server = ViteExpress.listen(app, PORT, () => {
 const wss = new WebSocketServer({ port: 4000 })
 
 wss.on("connection", (ws) => {
-  ws.on("message", (msg) => {
+  ws.on("message", async (msg) => {
     const message = JSON.parse(msg.toString())
     if (message.type === "join") wsRoom(message.gameId).add(ws)
-      const wsGame = games.get(message.gameId)
+    const wsGame = await db.query.gamesTable.findFirst({ where: (g, { eq }) => eq(g.id, message.gameId)})
     if (wsGame && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "update", game: wsGame }))
     }
