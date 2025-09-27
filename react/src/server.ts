@@ -11,7 +11,29 @@ import { eq } from "drizzle-orm"
 type MoveReqBody = {
   row: number;
   col: number;
+  clientId: string;
 };
+
+type Role = "X" | "O" | "spectator"
+
+const seats: Record<string, { X?: string; O?: string; byClient: Record<string, Role> }> = {}
+
+function clientSeat(gameId: number, clientId: string): Role {
+  const seat = seats[gameId] ?? (seats[gameId] = { byClient: {} })
+
+  if (seat.byClient[clientId]) return seat.byClient[clientId]
+
+  let role: Role = "spectator";
+  if (!seat.X) { seat.X = clientId; role = "X"; }
+  else if (!seat.O) { seat.O = clientId; role = "O"; }
+
+  seat.byClient[clientId] = role
+  return role;
+}
+
+function getSeat(gameId: number, clientId: string): Role | undefined {
+  return seats[gameId]?.byClient?.[clientId];
+}
 
 const app = express();
 const PORT = 3001;
@@ -36,7 +58,6 @@ app.post("/api/game", async (_, res) => {
 })
 
 
-// const game = await db.query.gamesTable.findFirst({ where: (g, { eq }) => eq(g.id, paramID) })
 app.get("/api/game/:id", async (req, res) => {
     const paramID = Number(req.params.id)
     const game = await db.query.gamesTable.findFirst({ where: (g, { eq }) => (eq(g.id, paramID))})
@@ -44,11 +65,29 @@ app.get("/api/game/:id", async (req, res) => {
     res.json(game);
 });
 
+app.post("/game/:id/join", async (req, res) => {
+  const gameId = Number(req.params.id)
+  const { clientId } = req.body as { clientId?: string }
+  const game = await db.query.gamesTable.findFirst({ where: (g, { eq }) => (eq(g.id, gameId))})
+  if (!clientId) {
+    return res.status(400).json({ error: "clientId is required" })
+  }
+  const role = clientSeat(gameId, clientId)
+  return res.json({ role })
+});
+
 app.post("/api/move/:id", async (req, res) => {
   const paramId = Number(req.params.id)
   const body = req.body as MoveReqBody;
   const current = await db.query.gamesTable.findFirst({ where: (g, { eq }) => eq(g.id, paramId) })
   if (!current) return res.status(404).json({ error: "Game not found "})
+  const seat = getSeat(paramId, body.clientId);
+  if (!seat || seat === "spectator") {
+  return res.status(403).json({ error: "spectators cannot move" });
+  }
+  if (seat !== current.currentPlayer) {
+  return res.status(403).json({ error: "not your turn" });
+  }
   const moved = makeMove(current as GameState, body.row, body.col)
   const next = { ...moved, winner: callWinner(moved.board)}
   await db.update(gamesTable).set({ board: next.board, currentPlayer: next.currentPlayer, winner: next.winner}).where(eq(gamesTable.id, paramId))

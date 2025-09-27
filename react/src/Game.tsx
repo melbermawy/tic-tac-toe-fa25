@@ -4,11 +4,12 @@ import type { GameState } from "./tictactoe";
 import { initialGameState } from "./tictactoe";
 type GameProps = {
   gameID: number,
-  onBack: () => void
+  onBack: () => void,
 }
 
 function Game({gameID, onBack}: GameProps) {
   const [gameState, setGameState] = useState<GameState>(initialGameState);
+  const [role, setRole] = useState<"X" | "O" | "spectator" | null>(null)
 
   useEffect(() => {
     fetch(`/api/game/${gameID}`)
@@ -17,43 +18,43 @@ function Game({gameID, onBack}: GameProps) {
       .catch((err) => console.error("error", err));
   }, [gameID]);
 
+  const [clientId] = useState(() => {
+    let id = localStorage.getItem("clientId")
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("clientId", id)
+    }
+    return id;
+  })
+
+  useEffect(() => {
+    fetch(`/game/${gameID}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId }),
+    })
+      .then((res) => res.json())
+      .then((data) => setRole(data.role))
+      .catch((err) => console.error("join error", err));
+  }, [gameID, clientId])
+
+
+
   async function handleClick(row: number, col: number) {
     if (gameState.winner || gameState.board[row][col]) return;
     const updated = await fetch(`/api/move/${gameID}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ row, col }),
-    }).then((r) => r.json());
-    setGameState(updated);
-  }
-
-useEffect(() => {
-
-  const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws"
-  const wsUrl = `${wsProtocol}://${window.location.host}/ws`
-  const webSocket = new WebSocket(wsUrl)
-    webSocket.onopen = () => {
-        webSocket.send(JSON.stringify({ type: "join", gameId: gameID }))
-    }
-    webSocket.onmessage = (e) => {
-    try {
-      const wsMessage = JSON.parse(typeof e.data === "string" ? e.data : String(e.data))
-      if (wsMessage?.type === "update" && wsMessage.game) {
-        setGameState(wsMessage.game as GameState)
-      } else {
-        console.warn("WS unknown message:", wsMessage)
+      body: JSON.stringify({ row, col, clientId }),
+    }).then((r) => {
+      if (!r.ok) {
+        return null
       }
-    } catch (err) {
-      console.warn("WS non-JSON message:", e.data)
+       r.json()});
+    if (updated) {
+      setGameState(updated);
     }
   }
-
-  webSocket.onclose = (ev) => {
-    console.log("WebSocket closed:", ev.code, ev.reason);
-  };
-
-  return () => webSocket.close();
-}, [gameID]);
 
 
 
@@ -79,6 +80,7 @@ useEffect(() =>  {
   return (
     <div className={parentDiv}>
       <h1 className="text-5xl text-white font-semibold">Tic Tac Toe</h1>
+      {role && <div className="text-xl m-5 text-white font-semibold">Your role: {role}</div>}
 
       <div className={divGrid}>
         <button className={buttonDesign} onClick={() => handleClick(0, 0)}>
@@ -133,3 +135,7 @@ useEffect(() =>  {
 }
 
 export default Game;
+function joinGame(): import("react").DependencyList | undefined {
+  throw new Error("Function not implemented.");
+}
+
