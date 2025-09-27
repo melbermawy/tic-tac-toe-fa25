@@ -23,9 +23,13 @@ export default function GameLobby({onPick, onCreateClick}: LobbyProps) {
       return (
     <div className={parentDiv}>
       <h1 className="text-3xl text-white font-bold mb-2">Tic-Tac-Toe Lobby</h1>
+      <p className="mb-6 text-white text-sm">
+        By Mohamad Abdou
+      </p>
       <p className="mb-6 text-white">
         Join an existing game or start a new one.
       </p>
+
 
       <button
         className="bg-[#2e2e2e] hover:bg-black px-4 py-2 rounded mb-6 mt-1 text-white"

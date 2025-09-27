@@ -10,6 +10,15 @@ type GameState = {
     board: Board
 }
 
+export function getCreateClientId (): string {
+  let clientId = localStorage.getItem("clientId") // reload safe hell yeaa
+  if (!clientId) {
+    clientId = crypto.randomUUID()
+    localStorage.setItem("clientId", clientId)
+  }
+  return clientId
+}
+
 export const initialGameState: GameState = {
   id: 1,
   currentPlayer: "X",
@@ -19,8 +28,8 @@ export const initialGameState: GameState = {
     [undefined, undefined, undefined]]
 }
 
-export const createInitialGameState = (id: number): GameState => ({
-  id, currentPlayer: "X", winner: undefined, board: [
+export const createInitialGameState = (): Omit<GameState, "id"> => ({
+  currentPlayer: "X", winner: undefined, board: [
     [undefined, undefined, undefined],
     [undefined, undefined, undefined],
     [undefined, undefined, undefined]
